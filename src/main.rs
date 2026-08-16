@@ -1,13 +1,16 @@
 use bevy::prelude::*;
 
-#[derive(Component)]
-struct Player;
+mod asset_importer;
+mod player;
 
+use crate::asset_importer::AssetImporterPlugin;
+use crate::player::PlayerPlugin;
 fn main() {
     App::new()
         .add_plugins(DefaultPlugins)
+        .add_plugins(AssetImporterPlugin)
+        .add_plugins(PlayerPlugin)
         .add_systems(Startup, setup)
-        .add_systems(Startup, spawn_player)
         .run();
 }
 
@@ -24,18 +27,5 @@ fn setup(
         DirectionalLight::default(),
         Transform::from_xyz(2.0, 4.0, 2.0)
             .looking_at(Vec3::ZERO, Vec3::Y),
-    ));
-}
-
-fn spawn_player(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    let scene = asset_server.load(
-    GltfAssetLabel::Scene(0).from_asset("Cat_1.glb")
-);
-    commands.spawn((
-        WorldAssetRoot(scene),
-        Player,
     ));
 }
