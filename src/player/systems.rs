@@ -1,6 +1,7 @@
 use bevy::prelude::*;
 use crate::asset_importer::resources::AssetImporter;
 use super::components::*;
+use avian3d::prelude::*;
 
 const PLAYER_SPEED: f32 = 5.0;
 
@@ -10,7 +11,10 @@ pub fn spawn_player(
 ) {
     commands.spawn((
         WorldAssetRoot(imported_assets.player_scene.clone()),
+        Transform::from_xyz(0.0, 5.0, 0.0),
         Player,
+        RigidBody::Dynamic,
+        Collider::capsule(1.0, 2.0),
         Motor {
             speed: PLAYER_SPEED,
             ..default()
