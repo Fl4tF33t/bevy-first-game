@@ -1,4 +1,5 @@
 use std::collections::HashSet;
+use std::hash::Hash;
 use bevy::prelude::*;
 use crate::asset_importer::resources::AssetImporter;
 use super::components::*;
@@ -71,8 +72,8 @@ pub fn entity_motor(
         velocity.y = motor.vertical_velocity;
         let filter = SpatialQueryFilter::from_excluded_entities([entity]);
         let mut collisions = HashSet::new();
+        let mut normals = Vec::new();
 
-        let mut hitData: Vec<Dir> = Vec::new();
         let out = move_and_slide.move_and_slide(
             collider,
              transform.translation.adjust_precision(),
@@ -84,7 +85,7 @@ pub fn entity_motor(
             |hit| {
                 {
                     collisions.insert(hit.entity);
-                    hitData.push(hit.normal.clone());
+                    normals.push(hit.normal.clone());
                 };
                 MoveAndSlideHitResponse::Accept
             },
@@ -93,14 +94,12 @@ pub fn entity_motor(
         transform.translation = out.position.f32();
         motor.direction = out.projected_velocity;
         // info!("Colliding with entities: {:?}", collisions);
-        for normal in hitData.iter() {
+        for normal in normals.iter() {
             if normal.y > 0.7 {
                 motor.grounded = true;
                 motor.vertical_velocity = 0.0;
             }
         }
         info!("Gravity applied: {}", motor.vertical_velocity);
-
-        
     }
 }
