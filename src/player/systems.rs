@@ -1,5 +1,4 @@
 use std::collections::HashSet;
-use std::hash::Hash;
 use bevy::prelude::*;
 use crate::asset_importer::resources::AssetImporter;
 use super::components::*;
@@ -24,6 +23,7 @@ pub fn spawn_player(
             ..default()
         },
     ));
+    
 }
 
 pub fn read_movement_inputs(
