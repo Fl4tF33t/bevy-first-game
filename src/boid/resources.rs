@@ -3,6 +3,8 @@ use std::collections::HashMap;
 use bevy::{math::USizeVec3, prelude::*};
 
 pub const SEPARATION_DISTANCE_SQR: f32 = 1.5 * 1.5;
+pub const ALIGNMENT_DISTANCE_SQR: f32 = 3.5 * 3.5;
+pub const COHESION_DISTANCE_SQR: f32 = 4.5 * 4.5;
 
 // const COUNT: usize = 20;
 // const SPAWN_AREA: Vec3 = Vec3::new(14.0, 6.0, 14.0);

@@ -1,21 +1,10 @@
+use bevy::math::VectorSpace;
 use bevy::prelude::*;
 use avian3d::prelude::*;
 use rand::*;
 
 use super::components::BoidAgent;
 use super::resources::*;
-
-pub fn update_boid_grid(
-    mut boid_grid: ResMut<SpatialGrid>,
-    grid_settings: Res<Grid3d>,
-    query: Query<(Entity, &Transform), With<BoidAgent>>,
-){
-    boid_grid.cells.clear();
-    for (entity, transform) in &query {
-        let key = grid_settings.world_to_cell(transform.translation);
-        boid_grid.insert(key, entity);
-    }
-}
 
 pub fn spawn_flock(
     boid_setting: Res<BoidSettings>,
@@ -24,7 +13,7 @@ pub fn spawn_flock(
     mut materials: ResMut<Assets<StandardMaterial>>
 ){
     let radius = boid_setting.scale;
-
+    
     for _ in 0..boid_setting.count{
         command.spawn((
             BoidAgent::default(),
@@ -42,7 +31,7 @@ pub fn spawn_flock(
                 StandardMaterial {
                     base_color: Color::BLACK,
                     ..Default::default()
-                })),
+            })),
         ));
     }
 }
@@ -56,6 +45,17 @@ pub fn clear_flock(
     }
 }
 
+pub fn update_boid_grid(
+    mut boid_grid: ResMut<SpatialGrid>,
+    grid_settings: Res<Grid3d>,
+    query: Query<(Entity, &Transform), With<BoidAgent>>,
+){
+    boid_grid.cells.clear();
+    for (entity, transform) in &query {
+        let key = grid_settings.world_to_cell(transform.translation);
+        boid_grid.insert(key, entity);
+    }
+}
 pub fn update_neighbors(
     mut query: Query<(Entity, &Transform, &mut BoidAgent)>,
     grid_settings: Res<Grid3d>,
@@ -69,28 +69,90 @@ pub fn update_neighbors(
     }
 }
 
-// pub fn compute_steering(
-// ){
-//     compute_separation();
-//     // compute_alignment();
-//     // compute_cohesion();
-//     // compute_bounds_steer();
-//     // compute_obstacle_avoidance();
-// }
-
-pub fn compute_separation(
-    mut query: Query<(&Transform, &BoidAgent, &mut LinearVelocity)>, 
-    transform_query: Query<&Transform, With<BoidAgent>>,     
+pub fn compute_steering(
+    mut query: Query<(&Transform, &mut BoidAgent, &mut LinearVelocity)>,
+    time: Res<Time>,
 ){
-    for (transform, boid_agent, mut linear_velocity) in &mut query{
+    for (transform, mut boid_agent, mut linear_velocity) in &mut query{
+        let mut velocity = Vec3::default();
+        
+        if boid_agent.steering.length_squared() < 0.1 {
+            velocity = *transform.forward() * time.delta_secs();
+        } else {
+            velocity = boid_agent.steering * time.delta_secs();
+        }
+        
+        // APPLY VELO
+        linear_velocity.0 = velocity;
+        boid_agent.steering = Vec3::ZERO;
+    }
+}
+
+pub fn compute_alignment(
+    mut query: Query<(&Transform, &mut BoidAgent)>, 
+    transform_query: Query<(&Transform, &LinearVelocity)>, 
+){
+    for (transform, mut boid_agent) in &mut query{
         let mut force = Vec3::ZERO;
         let mut count = 0;
+
+        for &neighbor in &boid_agent.neighbors{
+            if let Ok((neighbor_transform, linear_velocity)) = transform_query.get(neighbor){
+                let vector = transform.translation - neighbor_transform.translation;
+                let distance = vector.length_squared();
+                if distance > ALIGNMENT_DISTANCE_SQR || distance < f32::EPSILON {
+                    continue;
+                }
+                force += linear_velocity.0;
+                count += 1;
+            }
+        } 
+        if count > 0{
+            force /= count as f32;
+        }
+        boid_agent.steering += force;
+    }
+}
+
+pub fn compute_cohesion(
+    mut query: Query<(&Transform, &mut BoidAgent)>, 
+    transform_query: Query<&Transform, With<BoidAgent>>,     
+){
+    for (transform, mut boid_agent) in &mut query{
+        let mut force = Vec3::ZERO;
+        let mut count = 0;
+
         for &neighbor in &boid_agent.neighbors{
             if let Ok(neighbor_transform) = transform_query.get(neighbor){
                 let vector = transform.translation - neighbor_transform.translation;
                 let distance = vector.length_squared();
-                info!("Distance {:?}", distance);
-                if distance > SEPARATION_DISTANCE_SQR || distance < 0.0001 {
+                if distance > COHESION_DISTANCE_SQR || distance < f32::EPSILON {
+                    continue;
+                }
+                force += neighbor_transform.translation;
+                count += 1;
+            }
+        } 
+        if count > 0{
+            force = (force/count as f32 - transform.translation).normalize();
+        }
+        boid_agent.steering += force;
+    }
+}
+
+pub fn compute_separation(
+    mut query: Query<(&Transform, &mut BoidAgent)>, 
+    transform_query: Query<&Transform, With<BoidAgent>>,     
+){
+    for (transform, mut boid_agent) in &mut query{
+        let mut force = Vec3::ZERO;
+        let mut count = 0;
+
+        for &neighbor in &boid_agent.neighbors{
+            if let Ok(neighbor_transform) = transform_query.get(neighbor){
+                let vector = transform.translation - neighbor_transform.translation;
+                let distance = vector.length_squared();
+                if distance > SEPARATION_DISTANCE_SQR || distance < f32::EPSILON {
                     continue;
                 }
                 force += vector / distance;
@@ -100,8 +162,7 @@ pub fn compute_separation(
         if count > 0{
             force /= count as f32;
         }
-        
-        linear_velocity.0 = force;
+        boid_agent.steering += force;
     }
 }
 
