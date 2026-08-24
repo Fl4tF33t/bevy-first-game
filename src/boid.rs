@@ -14,7 +14,7 @@ pub struct BoidPlugin;
 impl Plugin for BoidPlugin{
     fn build(&self, app: &mut App) {
         app
-            .insert_resource(BoidSettings::new(3, Vec3::ONE, 0.5))
+            .insert_resource(BoidSettings::new(12, Vec3::ONE, 0.5))
             .insert_resource(Grid3d::new(10.0, USizeVec3::ONE * 10))
             .insert_resource(SpatialGrid::default())
 
@@ -45,6 +45,10 @@ impl Plugin for BoidPlugin{
                 compute_steering
                 // velocity
             ).in_set(BoidSet::Simulation))
+
+            .add_systems(Update, (
+                rotate_boid,
+            ).in_set(BoidSet::PostSimulation))
             
             .add_systems(Update, (
                 draw_grid_cells,
