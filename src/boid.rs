@@ -35,16 +35,16 @@ impl Plugin for BoidPlugin{
                 update_neighbors,
             ).in_set(BoidSet::PreSimulation))
 
-            .add_systems(Update, (
-                compute_separation,
-                compute_alignment,
-                compute_cohesion,
-            ).in_set(BoidSet::Calculation))
+            // .add_systems(Update, (
+            //     compute_separation,
+            //     compute_alignment,
+            //     compute_cohesion,
+            // ).in_set(BoidSet::Calculation))
 
-            .add_systems(Update, (
-                compute_steering
-                // velocity
-            ).in_set(BoidSet::Simulation))
+            // .add_systems(Update, (
+            //     compute_steering
+            //     // velocity
+            // ).in_set(BoidSet::Simulation))
 
             .add_systems(Update, (
                 rotate_boid,

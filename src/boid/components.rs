@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use rand::*;
 
-#[derive(Component, Default)]
+#[derive(Component, Default, Debug)]
 pub struct BoidAgent{
     pub neighbors: Vec<Entity>,
     pub steering: Vec3,
