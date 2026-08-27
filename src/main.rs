@@ -2,24 +2,18 @@ use bevy::prelude::*;
 use avian3d::prelude::*;
 
 mod asset_importer;
-mod player;
-mod level;
 mod boid;
 mod free_cam;
 
 use crate::asset_importer::AssetImporterPlugin;
 use crate::boid::BoidPlugin;
 use crate::free_cam::FreeCamPlugin;
-// use crate::player::PlayerPlugin;
-// use crate::level::LevelPlugin;
 fn main() {
     App::new()
         .add_plugins((DefaultPlugins, PhysicsPlugins::default()))
         .add_plugins(AssetImporterPlugin)
-        // .add_plugins(PlayerPlugin)
         .add_plugins(BoidPlugin)
         .add_plugins(FreeCamPlugin)
-        // .add_plugins(LevelPlugin)
         .add_systems(Startup, setup)
         .run();
 }

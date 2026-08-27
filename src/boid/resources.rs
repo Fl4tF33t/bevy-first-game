@@ -2,6 +2,13 @@ use std::collections::HashMap;
 
 use bevy::{math::USizeVec3, prelude::*};
 
+// BOID SETTINGS
+pub const BOID_COUNT: usize = 13;
+pub const DIMENSIONS: USizeVec3 = USizeVec3::splat(10);
+
+// GRID3D
+pub const CELL_SIZE: f32 = 5.0;
+
 pub const SEPARATION_DISTANCE: f32 = 1.5;
 pub const ALIGNMENT_DISTANCE: f32 = 3.5;
 pub const COHESION_DISTANCE: f32 = 4.5;
@@ -9,50 +16,31 @@ pub const SEPARATION_DISTANCE_SQR: f32 = squared(SEPARATION_DISTANCE);
 pub const ALIGNMENT_DISTANCE_SQR: f32 = squared(ALIGNMENT_DISTANCE);
 pub const COHESION_DISTANCE_SQR: f32 = squared(COHESION_DISTANCE);
 
+pub const SEPARATION_WEIGHT: f32 = 1.6;
+pub const ALIGNMENT_WEIGHT: f32 = 1.0;
+pub const COHESION_WEIGHT: f32 = 1.2;
+pub const BOUNDS_WEIGHT: f32 = 5.0;
+
 const fn squared(value: f32) -> f32 {
     value * value
 }
-// const COUNT: usize = 20;
-// const SPAWN_AREA: Vec3 = Vec3::new(14.0, 6.0, 14.0);
-// const SCALE: f32 = 0.5;
-// const BASE_SPEED: f32 = 7.0;
-// const SPEED_VARIANCE: f32 = 1.5;
-// const FLOCK_BOUNDS_RADIUS: f32 = 30.0;
-// const CONSTRAIN_Y: bool = true;
-// const CONSTRAINED_Y: f32 = 4.0;
+
+pub const fn bounds_limit() -> f32 {
+    DIMENSIONS.x as f32 * CELL_SIZE / 2.0
+}
 
 #[derive(Resource)]
 pub struct BoidSettings {
     //Spawn
     pub count: usize,
-    pub spawn_area: Vec3,
     pub scale: f32,
-    
-    //Movement
-    // pub base_speed: f32,
-    // pub speed_variance: f32,
-    // pub flock_bounds_radius: f32,
-
-    // //Vertical Constraints
-    // pub constrain_y: bool,
-    // pub constrained_y: f32,
 }
 
-
 impl BoidSettings {
-    pub fn new(count: usize, spawn_area: Vec3, scale: f32) -> Self {
+    pub fn new() -> Self {
         BoidSettings { 
-            count,
-            spawn_area,
-            scale,
-            // count: COUNT,
-            // spawn_area: SPAWN_AREA,
-            // scale: SCALE,
-            // base_speed: BASE_SPEED,
-            // speed_variance: SPEED_VARIANCE,
-            // flock_bounds_radius: FLOCK_BOUNDS_RADIUS,
-            // constrain_y: CONSTRAIN_Y,
-            // constrained_y: CONSTRAINED_Y, 
+            count: BOID_COUNT,
+            scale: 0.5,
         }
     }
 }
@@ -65,16 +53,12 @@ pub struct Grid3d{
 }
 
 impl Grid3d {
-    pub fn new(cell_size: f32, dimensions: USizeVec3) -> Self {
-        let grid_dimensions= Vec3::new(
-            dimensions.x as f32,
-            dimensions.y as f32,
-            dimensions.z as f32,
-        ) * cell_size;
+    pub fn new() -> Self {
+        let grid_dimensions = DIMENSIONS.as_vec3() * CELL_SIZE;
         let origin = -grid_dimensions / 2.0;
         Self {
-            cell_size,
-            dimensions,
+            cell_size: CELL_SIZE,
+            dimensions: DIMENSIONS,
             origin,
         }
     }
@@ -92,13 +76,11 @@ impl Grid3d {
 
 
 #[derive(Resource, Default)]
-pub struct SpatialGrid{
-    pub cells: HashMap<IVec3, Vec<Entity>>,
-}
+pub struct SpatialGrid (pub HashMap<IVec3, Vec<Entity>>);
 
 impl SpatialGrid{
     pub fn insert(&mut self, key: IVec3, value: Entity){
-        self.cells
+        self.0
             .entry(key)
             .or_default()
             .push(value);
@@ -112,7 +94,7 @@ impl SpatialGrid{
                 for z in -1..= 1 {
                     let neighbor = cell + IVec3::new(x, y, z);
 
-                    if let Some(boid_agents) = self.cells.get(&neighbor) {
+                    if let Some(boid_agents) = self.0.get(&neighbor) {
                         results.extend(boid_agents);
                     }
                 }
