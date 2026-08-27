@@ -12,6 +12,13 @@ pub struct BoidAgent{
     pub velocity: Vec3
 }
 
+#[derive(Clone, Copy)]
+pub struct BoidSnapShot {
+    pub entity: Entity,
+    pub position: Vec3,
+    pub velocity: Vec3
+}
+
 #[derive(Component, Default)]
 pub struct StoredVelocity(pub Vec3);
 
