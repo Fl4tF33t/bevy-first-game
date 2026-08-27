@@ -37,9 +37,10 @@ impl Plugin for BoidPlugin{
             ).in_set(BoidSet::PreSimulation))
 
             .add_systems(FixedUpdate, (
-                compute_separation,
-                compute_alignment,
-                compute_cohesion,
+                // compute_separation,
+                // compute_alignment,
+                compute_cohesion_and_separation_and_alignment,
+                // compute_cohesion,
                 compute_bounds
             ).in_set(BoidSet::Calculation))
 
@@ -59,7 +60,7 @@ impl Plugin for BoidPlugin{
             
             .add_systems(Update, (
                 draw_grid_cells,
-                draw_lines_to_neighbors,
+                // draw_lines_to_neighbors,
                 draw_occupied_cells,
                 draw_bounds,
             ).in_set(BoidSet::Debug));
