@@ -48,10 +48,10 @@ impl Plugin for BoidPlugin{
                 // velocity
             ).in_set(BoidSet::Simulation))
 
-            // .add_systems(FixedUpdate, (
-            //     reset_steering,
-            //     // velocity
-            // ).in_set(BoidSet::PostSimulation))
+            .add_systems(FixedUpdate, (
+                apply_boid_velocity,
+                // velocity
+            ).in_set(BoidSet::PostSimulation))
 
             // .add_systems(Update, (
             //     rotate_boid,

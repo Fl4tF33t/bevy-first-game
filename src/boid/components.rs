@@ -9,9 +9,11 @@ pub struct BoidAgent{
     pub cohesion: Vec3,
     pub alignment: Vec3,
     pub bound: Vec3,
-    pub steering: Vec3,
     pub velocity: Vec3
 }
+
+#[derive(Component, Default)]
+pub struct StoredVelocity(pub Vec3);
 
 #[derive(SystemSet, Debug, Hash, PartialEq, Eq, Clone)]
 pub enum BoidSet {

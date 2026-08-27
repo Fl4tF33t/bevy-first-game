@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use bevy::{math::USizeVec3, prelude::*};
 
 // BOID SETTINGS
-pub const BOID_COUNT: usize = 13;
+pub const BOID_COUNT: usize = 190;
 pub const DIMENSIONS: USizeVec3 = USizeVec3::splat(10);
 
 // GRID3D
@@ -20,6 +20,10 @@ pub const SEPARATION_WEIGHT: f32 = 1.6;
 pub const ALIGNMENT_WEIGHT: f32 = 1.0;
 pub const COHESION_WEIGHT: f32 = 1.2;
 pub const BOUNDS_WEIGHT: f32 = 5.0;
+
+pub const ACCELERATION_FORCE: f32 = 18.0;
+pub const MAX_SPEED: f32 = 7.0;
+pub const ROTATION_SHARPNESS: f32 = 10.0;
 
 const fn squared(value: f32) -> f32 {
     value * value

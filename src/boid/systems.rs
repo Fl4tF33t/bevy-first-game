@@ -13,6 +13,7 @@ pub fn spawn_flock(
         let position = Vec3::random_position();
         commands.spawn((
             BoidAgent::default(),
+            StoredVelocity::default(),
             Mesh3d(meshes.add(Tetrahedron::new(
                 Vec3::new(0.25, 0.25, 0.5),
                 Vec3::new(-0.25, 0.25, 0.5),
@@ -48,33 +49,7 @@ pub fn rotate_flock(
     }
 }
 
-pub fn compute_bounds(
-    mut query: Query<(&Transform, &mut BoidAgent)>,
-) {
-    let limit = bounds_limit();
-    let margin = 5.0;
 
-    for (transform, mut boid_agent) in &mut query {
-        let position = transform.translation;
-        let mut force = Vec3::ZERO;
-
-        for axis in 0..3 {
-            let distance = limit - position[axis].abs();
-
-            if distance < margin {
-                let strength = if distance <= 0.0 {
-                    2.0
-                } else {
-                    1.0 - distance / margin
-                };
-
-                force[axis] = -position[axis].signum() * strength;
-            }
-        }
-        force *= BOUNDS_WEIGHT;
-        boid_agent.bound = force;
-    }
-}
 
 pub fn update_boid_grid(
     mut boid_grid: ResMut<SpatialGrid>,
@@ -97,6 +72,7 @@ pub fn update_neighbors(
         let neighboring_agents = boid_grid.get_neighbor_agents(cell);
         let agents_without_self: Vec<Entity> = neighboring_agents.into_iter().filter(|&x| x != entity).collect();
         boid_agent.neighbors = agents_without_self;
+
     }
 }
 
@@ -119,78 +95,118 @@ pub fn rotate_boid(
     }
 }
 
+pub fn apply_boid_velocity(
+    mut query: Query<(&mut Transform, &BoidAgent, &mut StoredVelocity,)>,
+    time: Res<Time>,
+) {
+    for (mut transform, boid_agent, mut stored_velocity) in &mut query {
+        let velocity = boid_agent.velocity;
+
+        stored_velocity.0 = velocity;
+        if velocity.length_squared() > 0.01 {
+            transform.translation += velocity * time.delta_secs();
+
+
+            let target_rotation =
+                Quat::from_rotation_arc(
+                    Vec3::NEG_Z,
+                    velocity.normalize(),
+                );
+
+            let t =
+                ROTATION_SHARPNESS * time.delta_secs();
+
+            transform.rotation =
+                transform.rotation.slerp(
+                    target_rotation,
+                    t,
+                );
+        }
+    }
+}
+
 pub fn compute_steering(
-    mut query: Query<(&mut Transform, &BoidAgent)>,
+    mut query: Query<(&Transform, &mut BoidAgent, &StoredVelocity)>,
     time: Res<Time>,
 ){
-    for (mut transform, boid_agent,) in &mut query{
-        // let mut velocity = if boid_agent.steering.length_squared() < 0.1 {
+    for (transform, mut boid_agent, stored_velocity) in &mut query{
+
+        let mut steering = 
+            boid_agent.separation  * SEPARATION_WEIGHT +
+            boid_agent.alignment * ALIGNMENT_WEIGHT +
+            boid_agent.cohesion *COHESION_WEIGHT +
+            boid_agent.bound * BOUNDS_WEIGHT;
+
+        if steering.length_squared() < 0.0001 {
+            steering = *transform.forward()
+        }
+        
+        let acceleration = steering.normalize() * ACCELERATION_FORCE;
+        let mut next_velocity =
+            stored_velocity.0 + acceleration * time.delta_secs();
+
+        next_velocity = next_velocity.clamp_length_max(MAX_SPEED);
+
+        boid_agent.velocity = next_velocity;
+
+        info!("Next Velocity: {}", next_velocity);
+        // let mut desired_velocity =
         //     *transform.forward()
-        // } else {
-        //     boid_agent.steering
-        // };
+        //     + boid_agent.separation
+        //     + boid_agent.cohesion
+        //     + boid_agent.alignment
+        //     + boid_agent.bound;
 
-        let mut desired_velocity =
-            *transform.forward()
-            + boid_agent.separation
-            + boid_agent.cohesion
-            + boid_agent.alignment
-            + boid_agent.bound;
-
-        desired_velocity = desired_velocity.normalize();
-
-
-        // transform.translation += forward;
         // desired_velocity = desired_velocity.normalize();
 
-        let current_velocity = *transform.forward();
 
-        let direction = current_velocity.lerp(
-            desired_velocity,
-            3.0 * time.delta_secs(),
-        );
+        // // transform.translation += forward;
+        // // desired_velocity = desired_velocity.normalize();
 
-        transform.look_to(direction, Vec3::Y);
+        // let current_velocity = *transform.forward();
 
-        transform.translation +=
-            direction * 5.0 * time.delta_secs();
+        // let direction = current_velocity.lerp(
+        //     desired_velocity,
+        //     3.0 * time.delta_secs(),
+        // );
+
+        // transform.look_to(direction, Vec3::Y);
+
+        // transform.translation +=
+        //     direction * 5.0 * time.delta_secs();
         
     }
 }
 
-// pub fn reset_steering(
-//     mut query: Query<&mut BoidAgent>,
-// ){
-//     for mut boid_agent in &mut query{
-//         boid_agent.steering = Vec3::ZERO;
-//     }
-// }
 
 pub fn compute_alignment(
     mut query: Query<(&Transform, &mut BoidAgent)>, 
-    transform_query: Query<&Transform, With<BoidAgent>>, 
+    transform_query: Query<(&Transform, &StoredVelocity)>, 
 ){
     for (transform, mut boid_agent) in &mut query{
-        let mut force = Vec3::ZERO;
+        let mut average_velocity = Vec3::ZERO;
         let mut count = 0;
 
         for &neighbor in &boid_agent.neighbors{
-            if let Ok(neighbor_transform) = transform_query.get(neighbor){
-                let vector = neighbor_transform.translation - transform.translation;
-                let distance = vector.length_squared();
-                if distance > ALIGNMENT_DISTANCE_SQR || distance < f32::EPSILON {
+            if let Ok((neighbor_transform, neighbor_velocity)) = transform_query.get(neighbor){
+                let offset = neighbor_transform.translation - transform.translation;
+                let distance = offset.length_squared();
+
+                if distance > ALIGNMENT_DISTANCE_SQR {
                     continue;
                 }
-                force += *neighbor_transform.forward();
+                average_velocity += neighbor_velocity.0;
                 count += 1;
             }
         } 
+
+
         if count > 0{
-            force /= count as f32;
-            info!("Alignment: {}", force);
+            average_velocity = (average_velocity / count as f32).normalize_or_zero();
+        } else {
+            average_velocity = *transform.forward();
         }
-        force *= ALIGNMENT_WEIGHT;
-        boid_agent.alignment += force;
+        boid_agent.alignment = average_velocity;
     }
 }
 
@@ -199,26 +215,28 @@ pub fn compute_cohesion(
     transform_query: Query<&Transform, With<BoidAgent>>,     
 ){
     for (transform, mut boid_agent) in &mut query{
-        let mut force = Vec3::ZERO;
+        let mut center = Vec3::ZERO;
         let mut count = 0;
+        let position = transform.translation;
 
         for &neighbor in &boid_agent.neighbors{
             if let Ok(neighbor_transform) = transform_query.get(neighbor){
-                let vector = neighbor_transform.translation - transform.translation;
+                let neighbor_position = neighbor_transform.translation;
+                let vector = neighbor_position - position;
                 let distance = vector.length_squared();
-                if distance > COHESION_DISTANCE_SQR || distance < f32::EPSILON {
+
+                if distance > COHESION_DISTANCE_SQR {
                     continue;
                 }
-                force += neighbor_transform.translation;
+                center += neighbor_position;
                 count += 1;
             }
         } 
+        
         if count > 0{
-            force = (force/count as f32 - transform.translation).normalize_or_zero();
-            info!("Cohesion: {}", force);
+            center = (center/count as f32 - position).normalize_or_zero();
         }
-        force *= COHESION_WEIGHT;
-        boid_agent.cohesion = force;
+        boid_agent.cohesion = center;
     }
 }
 
@@ -227,8 +245,6 @@ pub fn compute_separation(
     transform_query: Query<&Transform, With<BoidAgent>>,     
 ){
     for (transform, mut boid_agent) in &mut query{
-
-        
         let mut force = Vec3::ZERO;
         let mut count = 0;
 
@@ -236,18 +252,44 @@ pub fn compute_separation(
             if let Ok(neighbor_transform) = transform_query.get(neighbor){
                 let vector = transform.translation - neighbor_transform.translation;
                 let distance = vector.length_squared();
-                if distance > SEPARATION_DISTANCE_SQR || distance < f32::EPSILON {
+
+                if distance > SEPARATION_DISTANCE_SQR || distance < 0.0001 {
                     continue;
                 }
                 force += vector / distance;
                 count += 1;
             }
         } 
+
         if count > 0{
             force /= count as f32;
-            info!("Separation: {}", force);
         }
-        force *= SEPARATION_WEIGHT;
         boid_agent.separation = force;
     }   
+}
+
+pub fn compute_bounds(
+    mut query: Query<(&Transform, &mut BoidAgent)>,
+) {
+    let limit = bounds_limit();
+    let inner_radius = limit * 0.85;
+
+    for (transform, mut boid_agent) in &mut query {
+        let offset = transform.translation;
+        let distance = offset.length();
+
+        if distance <= inner_radius {
+            boid_agent.bound = Vec3::ZERO;
+            continue;
+        }
+
+        let strength = (
+            (distance - inner_radius) /
+            (limit - inner_radius)
+        ).clamp(0.0, 1.0);
+
+        boid_agent.bound =
+            (-transform.translation).normalize_or_zero()
+            * strength;
+    }
 }
